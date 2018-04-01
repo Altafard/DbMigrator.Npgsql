@@ -117,19 +117,30 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="CheckExisting" xml:space="preserve">
-    <value>SELECT 1 FROM pg_class WHERE relname = '__migrations'</value>
+  <data name="CheckIfDatabaseExists" xml:space="preserve">
+    <value>SELECT true FROM pg_catalog.pg_database WHERE datname = :dbName;</value>
   </data>
-  <data name="Delete" xml:space="preserve">
-    <value>DELETE FROM public."__migrations" WHERE "key" = {0};</value>
+  <data name="CreateDatabase" xml:space="preserve">
+    <value>CREATE DATABASE {0} OWNER {1} ENCODING 'UTF8';</value>
   </data>
-  <data name="Init" xml:space="preserve">
-    <value>DO $$ BEGIN CREATE TABLE IF NOT EXISTS public."__migrations" ("key" bigint NOT NULL, "applied_at" timestamp without time zone NOT NULL, "type" varchar(128)) WITH (OIDS = FALSE); CREATE UNIQUE INDEX IF NOT EXISTS "migration_keys" ON public."__migrations" USING btree("key"); END; $$</value>
+  <data name="CreateTableIfNotExists" xml:space="preserve">
+    <value>DO
+$$
+BEGIN
+	CREATE TABLE IF NOT EXISTS __migrations (
+		key bigint PRIMARY KEY,
+		applied_at timestamp NOT NULL,
+		type text) WITH (OIDS = FALSE);
+END;
+$$</value>
   </data>
-  <data name="Insert" xml:space="preserve">
-    <value>INSERT INTO public."__migrations" VALUES({0}, '{1}'::date, '{2}');</value>
+  <data name="InsertMigration" xml:space="preserve">
+    <value>INSERT INTO __migrations VALUES(:key, :date, :type);</value>
   </data>
-  <data name="Select" xml:space="preserve">
-    <value>SELECT "key", "type" FROM public."__migrations";</value>
+  <data name="RemoveMigration" xml:space="preserve">
+    <value>DELETE FROM __migrations WHERE key = :key;</value>
+  </data>
+  <data name="SelectAppliedMigrations" xml:space="preserve">
+    <value>SELECT key, type FROM __migrations;</value>
   </data>
 </root>

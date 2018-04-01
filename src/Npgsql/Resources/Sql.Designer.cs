@@ -61,47 +61,64 @@ namespace AltaDigital.DbMigrator.Npgsql.Resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to SELECT 1 FROM pg_class WHERE relname = &apos;__migrations&apos;.
+        ///   Looks up a localized string similar to SELECT true FROM pg_catalog.pg_database WHERE datname = :dbName;.
         /// </summary>
-        internal static string CheckExisting {
+        internal static string CheckIfDatabaseExists {
             get {
-                return ResourceManager.GetString("CheckExisting", resourceCulture);
+                return ResourceManager.GetString("CheckIfDatabaseExists", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to DELETE FROM public.&quot;__migrations&quot; WHERE &quot;key&quot; = {0};.
+        ///   Looks up a localized string similar to CREATE DATABASE {0} OWNER {1} ENCODING &apos;UTF8&apos;;.
         /// </summary>
-        internal static string Delete {
+        internal static string CreateDatabase {
             get {
-                return ResourceManager.GetString("Delete", resourceCulture);
+                return ResourceManager.GetString("CreateDatabase", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to DO $$ BEGIN CREATE TABLE IF NOT EXISTS public.&quot;__migrations&quot; (&quot;key&quot; bigint NOT NULL, &quot;applied_at&quot; timestamp without time zone NOT NULL, &quot;type&quot; varchar(128)) WITH (OIDS = FALSE); CREATE UNIQUE INDEX IF NOT EXISTS &quot;migration_keys&quot; ON public.&quot;__migrations&quot; USING btree(&quot;key&quot;); END; $$.
+        ///   Looks up a localized string similar to DO
+        ///$$
+        ///BEGIN
+        ///	CREATE TABLE IF NOT EXISTS __migrations (
+        ///		key bigint PRIMARY KEY,
+        ///		applied_at timestamp NOT NULL,
+        ///		type text) WITH (OIDS = FALSE);
+        ///END;
+        ///$$.
         /// </summary>
-        internal static string Init {
+        internal static string CreateTableIfNotExists {
             get {
-                return ResourceManager.GetString("Init", resourceCulture);
+                return ResourceManager.GetString("CreateTableIfNotExists", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to INSERT INTO public.&quot;__migrations&quot; VALUES({0}, &apos;{1}&apos;::date, &apos;{2}&apos;);.
+        ///   Looks up a localized string similar to INSERT INTO __migrations VALUES(:key, :date, :type);.
         /// </summary>
-        internal static string Insert {
+        internal static string InsertMigration {
             get {
-                return ResourceManager.GetString("Insert", resourceCulture);
+                return ResourceManager.GetString("InsertMigration", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to SELECT &quot;key&quot;, &quot;type&quot; FROM public.&quot;__migrations&quot;;.
+        ///   Looks up a localized string similar to DELETE FROM __migrations WHERE key = :key;.
         /// </summary>
-        internal static string Select {
+        internal static string RemoveMigration {
             get {
-                return ResourceManager.GetString("Select", resourceCulture);
+                return ResourceManager.GetString("RemoveMigration", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to SELECT key, type FROM __migrations;.
+        /// </summary>
+        internal static string SelectAppliedMigrations {
+            get {
+                return ResourceManager.GetString("SelectAppliedMigrations", resourceCulture);
             }
         }
     }

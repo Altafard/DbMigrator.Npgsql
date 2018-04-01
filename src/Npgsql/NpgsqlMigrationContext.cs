@@ -1,10 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data.Common;
+using System.Text;
 using System.Threading.Tasks;
 using AltaDigital.DbMigrator.Configurations;
+using AltaDigital.DbMigrator.Core;
+using AltaDigital.DbMigrator.Exceptions;
 using AltaDigital.DbMigrator.Npgsql.Resources;
 using Npgsql;
+using NpgsqlTypes;
 
 namespace AltaDigital.DbMigrator.Npgsql
 {
@@ -12,133 +16,98 @@ namespace AltaDigital.DbMigrator.Npgsql
     /// <summary>
     /// Npgsql context for DbMigrator.
     /// </summary>
-    public sealed class NpgsqlMigrationContext : IMigrationContext
+    public sealed class NpgsqlMigrationContext : MigrationContextBase
     {
         private readonly NpgsqlConnection _connection;
-        private IDictionary<long, string> _applied;
-
-        /// <inheritdoc />
-        public bool IsInitialized { get; private set; }
-
-        /// <inheritdoc />
-        /// <exception cref="InvalidOperationException">Migration context not initialized.</exception>
-        public IDictionary<long, string> AppliedMigrations
-        {
-            get
-            {
-                if (!this.IsInitialized)
-                    throw new InvalidOperationException("Migration context must be initialized first");
-                return this._applied;
-            }
-        }
 
         /// <summary>
         /// Ctor
         /// </summary>
-        /// <param name="cfg">Configurations for database provider</param>
-        /// <exception cref="ArgumentNullException">The passed argument(s) is NULL</exception>
-        /// <exception cref="InvalidOperationException">Configuration is NULL or has invalid values</exception>
-        public NpgsqlMigrationContext(DbConnectionConfig cfg)
+        public NpgsqlMigrationContext(MigrationContextConfig cfg) : base(cfg)
         {
-            if (cfg == null)
-                throw new ArgumentNullException(nameof(cfg));
-            if (string.IsNullOrEmpty(cfg.ConnectionString))
-                throw new InvalidOperationException("Connection string for database cannot bu NULL or empty");
-
-            this._connection = new NpgsqlConnection(cfg.ConnectionString);
+            _connection = new NpgsqlConnection(cfg.ConnectionString);
         }
 
         /// <inheritdoc />
-        /// <exception cref="InvalidOperationException">Migration context already has been initialized</exception>
-        /// <exception cref="DbException">Some errors occurred on working with DB</exception>
-        public async Task Init()
+        protected override async Task InsertMigrationAsync(IMigration migration, string name)
         {
-            if (this.IsInitialized)
-                throw new InvalidOperationException("Migration context already has been initialized");
-
-            await this._connection.OpenAsync();
-
-            bool exist = await this.MigrationsTableExist();
-            if (!exist) await this.CreateMigrationsTable();
-            this._applied = await this.GetAppliedMigrations();
-
-            this._connection.Close();
-
-            this.IsInitialized = true;
-        }
-
-        /// <inheritdoc />
-        /// <param name="migrations">Migrations to include</param>
-        /// <exception cref="ArgumentException">An element with the same key already exists in the dictionary</exception>
-        public async Task Include(IEnumerable<IMigration> migrations)
-        {
-            foreach (IMigration migration in migrations)
-            {
-                Type type = migration.GetType();
-                await this.InsertMigration(migration.Key, type.Name);
-                this._applied.Add(migration.Key, type.Name);
-            }
-        }
-
-        /// <inheritdoc />
-        /// <param name="migrations">Migrations for exclude</param>
-        public async Task Exclude(IEnumerable<IMigration> migrations)
-        {
-            foreach (IMigration migration in migrations)
-            {
-                await this.DeleteMigration(migration.Key);
-                this._applied.Remove(migration.Key);
-            }
-        }
-
-        /// <inheritdoc />
-        /// <param name="sql">SQL</param>
-        public void ExecuteSql(string sql)
-        {
-            this._connection.Open();
+            await _connection.OpenAsync();
             using (NpgsqlCommand command = this._connection.CreateCommand())
             {
-                command.CommandText = sql;
-                command.ExecuteNonQuery();
+                command.CommandText = Sql.InsertMigration;
+                command.Parameters.AddWithValue("key", NpgsqlDbType.Bigint, migration.Key);
+                command.Parameters.AddWithValue("date", NpgsqlDbType.Timestamp, DateTime.UtcNow);
+                command.Parameters.AddWithValue("type", NpgsqlDbType.Text, name ?? migration.GetType().Name);
+                await command.ExecuteNonQueryAsync();
             }
-            this._connection.Close();
+            _connection.Close();
         }
 
         /// <inheritdoc />
-        public void Dispose()
+        protected override async Task RemoveMigrationAsync(IMigration migration)
         {
-            this._connection.Dispose();
-        }
-
-        #region ' Privates methods '
-
-        private async Task<bool> MigrationsTableExist()
-        {
-            using (NpgsqlCommand cmd = this._connection.CreateCommand())
+            await _connection.OpenAsync();
+            using (NpgsqlCommand command = this._connection.CreateCommand())
             {
-                cmd.CommandText = Sql.CheckExisting;
-                object result = await cmd.ExecuteScalarAsync();
-                return result != null;
+                command.CommandText = Sql.RemoveMigration;
+                command.Parameters.AddWithValue("key", NpgsqlDbType.Bigint, migration.Key);
+                await command.ExecuteNonQueryAsync();
             }
+            _connection.Close();
         }
 
-        private async Task CreateMigrationsTable()
+        /// <inheritdoc />
+        protected override async Task EnsureExistDatabaseAsync()
         {
-            using (NpgsqlCommand cmd = this._connection.CreateCommand())
+            if (Configuration.ConnectionClaims.ContainsKey("Server") == false)
+                throw new MigrationContextException("Cannot detect host server claim");
+            if (Configuration.ConnectionClaims.ContainsKey("Port") == false)
+                throw new MigrationContextException("Cannot detect host port claim");
+            if (Configuration.ConnectionClaims.ContainsKey("User ID") == false)
+                throw new MigrationContextException("Cannot detect user name claim");
+            if (Configuration.ConnectionClaims.ContainsKey("Password") == false)
+                throw new MigrationContextException("Cannot detect password claim");
+            if (Configuration.ConnectionClaims.ContainsKey("Database") == false)
+                throw new MigrationContextException("Cannot detect database name claim");
+
+            var connectionStringBuilder = new StringBuilder();
+            connectionStringBuilder
+                .Append($"Server={Configuration.ConnectionClaims["Server"]};")
+                .Append($"Port={Configuration.ConnectionClaims["Port"]};")
+                .Append($"User ID={Configuration.ConnectionClaims["User ID"]};")
+                .Append($"Password={Configuration.ConnectionClaims["Password"]};")
+                ;
+            _connection.ConnectionString = connectionStringBuilder.ToString();
+
+            await _connection.OpenAsync();
+            if (await CheckIfDatabaseExists() == false) await CreateDatabase();
+            _connection.Close();
+
+            _connection.ConnectionString = Configuration.ConnectionString;
+        }
+
+        /// <inheritdoc />
+        protected override async Task EnsureExistMigrationTableAsync()
+        {
+            await _connection.OpenAsync();
+            using (NpgsqlCommand command = _connection.CreateCommand())
             {
-                cmd.CommandText = Sql.Init;
-                await cmd.ExecuteNonQueryAsync();
+                command.CommandText = Sql.CreateTableIfNotExists;
+                await command.ExecuteNonQueryAsync();
             }
+            _connection.Close();
         }
 
-        private async Task<Dictionary<long, string>> GetAppliedMigrations()
+        /// <inheritdoc />
+        protected override async Task<Dictionary<long, string>> LoadMigrationsAsync()
         {
-            var dic = new Dictionary<long, string>();
-            using (NpgsqlCommand cmd = this._connection.CreateCommand())
+            var temp = new Dictionary<long, string>();
+            await _connection.OpenAsync();
+            using (NpgsqlCommand command = _connection.CreateCommand())
             {
-                cmd.CommandText = Sql.Select;
+                command.CommandText = Sql.SelectAppliedMigrations;
 
-                using (DbDataReader reader = await cmd.ExecuteReaderAsync())
+                using (DbDataReader reader = await command.ExecuteReaderAsync())
                 {
                     if (reader.HasRows)
                     {
@@ -146,35 +115,56 @@ namespace AltaDigital.DbMigrator.Npgsql
                         {
                             long key = reader.GetInt64(0);
                             string type = reader.GetString(1);
-                            dic.Add(key, type);
+                            temp.Add(key, type);
                         }
                     }
-
-                    return dic;
                 }
             }
+            _connection.Close();
+            return temp;
         }
 
-        private async Task InsertMigration(long key, string name)
+        /// <inheritdoc />
+        public override async Task ExecuteAsync(string sql)
         {
-            await this._connection.OpenAsync();
-            using (NpgsqlCommand cmd = this._connection.CreateCommand())
+            await _connection.OpenAsync();
+            using (NpgsqlCommand command = _connection.CreateCommand())
             {
-                cmd.CommandText = string.Format(Sql.Insert, key, DateTime.Now.ToString("O"), name);
-                await cmd.ExecuteNonQueryAsync();
+                command.CommandText = sql;
+                await command.ExecuteNonQueryAsync();
             }
-            this._connection.Close();
+            _connection.Close();
         }
 
-        private async Task DeleteMigration(long key)
+        /// <inheritdoc />
+        public override void Dispose()
         {
-            await this._connection.OpenAsync();
-            using (NpgsqlCommand cmd = this._connection.CreateCommand())
+            _connection.Close();
+            _connection.Dispose();
+        }
+
+        #region ' Privates methods '
+
+        private async Task<bool> CheckIfDatabaseExists()
+        {
+            using (NpgsqlCommand command = _connection.CreateCommand())
             {
-                cmd.CommandText = string.Format(Sql.Delete, key);
-                await cmd.ExecuteNonQueryAsync();
+                command.CommandText = Sql.CheckIfDatabaseExists;
+                command.Parameters.AddWithValue("dbName", NpgsqlDbType.Text, Configuration.ConnectionClaims["Database"]);
+                object result = await command.ExecuteScalarAsync();
+                return (bool?) result ?? false;
             }
-            this._connection.Close();
+        }
+
+        private async Task CreateDatabase()
+        {
+            using (NpgsqlCommand command = _connection.CreateCommand())
+            {
+                command.CommandText = string.Format(Sql.CreateDatabase,
+                    Configuration.ConnectionClaims["Database"],
+                    Configuration.ConnectionClaims["User ID"]);
+                await command.ExecuteNonQueryAsync();
+            }
         }
 
         #endregion
