@@ -4,7 +4,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <AssemblyName>AltaDigital.DbMigrator.Npgsql</AssemblyName>
     <RootNamespace>AltaDigital.DbMigrator.Npgsql</RootNamespace>
-    <PackageVersion>2.0.2</PackageVersion>
+    <PackageVersion>2.0.2.1</PackageVersion>
     <Title>DbMigrator for Npgsql</Title>
     <Authors>Alexandr Pilipenko</Authors>
     <Description>Implementation of migration context of DbMigrator for Npgsql</Description>
@@ -17,7 +17,7 @@
 
   <ItemGroup>
     <PackageReference Include="Npgsql" Version="3.2.7" />
-    <PackageReference Include="AltaDigital.DbMigrator" Version="2.0.1" />
+    <PackageReference Include="AltaDigital.DbMigrator" Version="2.0.2" />
   </ItemGroup>
 
   <ItemGroup>
