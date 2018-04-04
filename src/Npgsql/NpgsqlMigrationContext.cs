@@ -25,7 +25,7 @@ namespace AltaDigital.DbMigrator.Npgsql
         /// </summary>
         public NpgsqlMigrationContext(MigrationContextConfig cfg) : base(cfg)
         {
-            _connection = new NpgsqlConnection(cfg.ConnectionString);
+            _connection = cfg.EnsureDbExists ? new NpgsqlConnection() : new NpgsqlConnection(cfg.ConnectionString);
         }
 
         /// <inheritdoc />

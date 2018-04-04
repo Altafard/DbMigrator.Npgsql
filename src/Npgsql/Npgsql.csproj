@@ -4,20 +4,20 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <AssemblyName>AltaDigital.DbMigrator.Npgsql</AssemblyName>
     <RootNamespace>AltaDigital.DbMigrator.Npgsql</RootNamespace>
-    <PackageVersion>2.0.0</PackageVersion>
+    <PackageVersion>2.0.1</PackageVersion>
     <Title>DbMigrator for Npgsql</Title>
     <Authors>Alexandr Pilipenko</Authors>
     <Description>Implementation of migration context of DbMigrator for Npgsql</Description>
     <Copyright>Copyright (c) 2018 Alexandr Pilipenko</Copyright>
     <PackageLicenseUrl>https://opensource.org/licenses/MIT</PackageLicenseUrl>
     <PackageProjectUrl>https://github.com/Altafard/DbMigrator.Npgsql</PackageProjectUrl>
-    <PackageReleaseNotes>Implemented changes from DbMigrator v2.0.0</PackageReleaseNotes>
+    <PackageReleaseNotes>Connection way was changed</PackageReleaseNotes>
     <PackageTags>C#;database;migration;npgsql</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Npgsql" Version="3.2.7" />
-    <PackageReference Include="AltaDigital.DbMigrator" Version="2.0.0" />
+    <PackageReference Include="AltaDigital.DbMigrator" Version="2.0.1" />
   </ItemGroup>
 
   <ItemGroup>
