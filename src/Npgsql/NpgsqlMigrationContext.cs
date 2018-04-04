@@ -25,7 +25,7 @@ namespace AltaDigital.DbMigrator.Npgsql
         /// </summary>
         public NpgsqlMigrationContext(MigrationContextConfig cfg) : base(cfg)
         {
-            _connection = cfg.EnsureDbExists ? new NpgsqlConnection() : new NpgsqlConnection(cfg.ConnectionString);
+            _connection = new NpgsqlConnection(cfg.ConnectionString);
         }
 
         /// <inheritdoc />
@@ -76,6 +76,7 @@ namespace AltaDigital.DbMigrator.Npgsql
                 .Append($"Port={Configuration.ConnectionClaims["Port"]};")
                 .Append($"User ID={Configuration.ConnectionClaims["User ID"]};")
                 .Append($"Password={Configuration.ConnectionClaims["Password"]};")
+                .Append("Database=postgres;")
                 ;
             _connection.ConnectionString = connectionStringBuilder.ToString();
 
